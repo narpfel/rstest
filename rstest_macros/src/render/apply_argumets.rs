@@ -71,10 +71,8 @@ impl ApplyArgumets for ItemFn {
             });
         let orig_block_impl = self.block.clone();
         self.block = parse_quote! {
-            {
-                #(#rebound_awaited_args)*
-                #orig_block_impl
-            }
+            #(#rebound_awaited_args)*
+            #orig_block_impl
         };
         self.sig.apply_argumets(arguments);
     }

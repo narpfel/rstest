@@ -1,5 +1,14 @@
 use rstest::*;
 
+#[rustfmt::skip]
+#[fixture]
+fn string() -> &'static str { "abc" }
+
+#[rstest]
+fn test_string(string: &'static str) {
+    assert_eq!(string, "abc");
+}
+
 #[fixture]
 fn val() -> i32 {
     21

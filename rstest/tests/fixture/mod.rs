@@ -54,6 +54,7 @@ mod should {
         let (output, _) = run_test("no_warning.rs");
 
         assert_not_in!(output.stderr.str(), "warning:");
+        assert_not_in!(output.stderr.str(), "unused_braces");
     }
 
     #[test]
