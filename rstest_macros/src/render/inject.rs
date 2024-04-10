@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse_quote, Expr, FnArg, Ident, Stmt, Type};
+use syn::{parse_quote, Expr, FnArg, Ident, PatType, Stmt, Type, TypeReference};
 
 use crate::{
     refident::{MaybeIdent, MaybeType},
@@ -44,6 +44,20 @@ where
 
     fn resolve(&self, arg: &FnArg) -> Option<Stmt> {
         let ident = arg.maybe_ident()?;
+        let maybe_reference = match arg {
+            FnArg::Receiver(_) => None?,
+            FnArg::Typed(PatType { ty, .. }) => match ty.as_ref() {
+                Type::Reference(TypeReference {
+                    mutability, elem, ..
+                }) => match elem.as_ref() {
+                    Type::ImplTrait(_) | Type::TraitObject(_) | Type::Slice(_) => {
+                        None
+                    }
+                    _ => Some(quote! { &#mutability }),
+                },
+                _ => None,
+            },
+        };
         let mutability = fn_arg_mutability(arg);
         let unused_mut: Option<syn::Attribute> = mutability
             .as_ref()
@@ -62,7 +76,7 @@ where
         }
         Some(parse_quote! {
             #unused_mut
-            let #mutability #ident = #fixture;
+            let #mutability #ident = #maybe_reference #fixture;
         })
     }
 
