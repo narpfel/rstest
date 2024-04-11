@@ -17,8 +17,13 @@ pub(crate) mod fixtures {
 
     pub(crate) fn get<'a>(fixtures: impl Iterator<Item = &'a Fixture>) -> impl Resolver + 'a {
         fixtures
-            .map(|f| (f.name.to_string(), extract_resolve_expression(f)))
-            .collect::<HashMap<_, Expr>>()
+            .map(|f| {
+                (
+                    f.name.to_string(),
+                    Resolved::owned(extract_resolve_expression(f), f.has_no_ref_attribute),
+                )
+            })
+            .collect::<HashMap<_, _>>()
     }
 
     fn extract_resolve_expression(fixture: &Fixture) -> syn::Expr {
@@ -44,7 +49,7 @@ pub(crate) mod fixtures {
             let data = vec![fixture("pippo", args)];
             let resolver = get(data.iter());
 
-            let resolved = resolver.resolve(&ident("pippo")).unwrap().into_owned();
+            let resolved = resolver.resolve(&ident("pippo")).unwrap().expr.into_owned();
 
             assert_eq!(resolved, format!("pippo::{}", expected).ast());
         }
@@ -57,7 +62,7 @@ pub(crate) mod fixtures {
             let data = vec![fixture("pippo", args).with_resolve("pluto")];
             let resolver = get(data.iter());
 
-            let resolved = resolver.resolve(&ident("pippo")).unwrap().into_owned();
+            let resolved = resolver.resolve(&ident("pippo")).unwrap().expr.into_owned();
 
             assert_eq!(resolved, format!("pluto::{}", expected).ast());
         }
@@ -70,8 +75,8 @@ pub(crate) mod values {
 
     pub(crate) fn get<'a>(values: impl Iterator<Item = &'a ArgumentValue>) -> impl Resolver + 'a {
         values
-            .map(|av| (av.name.to_string(), &av.expr))
-            .collect::<HashMap<_, &'a Expr>>()
+            .map(|av| (av.name.to_string(), Resolved::borrowed(&av.expr, true)))
+            .collect::<HashMap<_, _>>()
     }
 
     #[cfg(test)]
@@ -88,58 +93,83 @@ pub(crate) mod values {
             let resolver = get(data.iter());
 
             assert_eq!(
-                resolver.resolve(&ident("pippo")).unwrap().into_owned(),
+                resolver.resolve(&ident("pippo")).unwrap().expr.into_owned(),
                 "42".ast()
             );
             assert_eq!(
-                resolver.resolve(&ident("donaldduck")).unwrap().into_owned(),
+                resolver
+                    .resolve(&ident("donaldduck"))
+                    .unwrap()
+                    .expr
+                    .into_owned(),
                 "vec![1,2]".ast()
             );
         }
     }
 }
 
-/// A trait that `resolve` the given ident to expression code to assign the value.
-pub(crate) trait Resolver {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>>;
+pub(crate) struct Resolved<'a> {
+    pub(crate) expr: Cow<'a, Expr>,
+    pub(crate) no_ref: bool,
 }
 
-impl<'a> Resolver for HashMap<String, &'a Expr> {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
-        let ident = ident.to_string();
-        self.get(&ident).map(|&c| Cow::Borrowed(c))
+impl<'a> Resolved<'a> {
+    pub(crate) fn owned(expr: Expr, no_ref: bool) -> Self {
+        Self {
+            expr: Cow::Owned(expr),
+            no_ref,
+        }
+    }
+
+    pub(crate) fn borrowed(expr: &'a Expr, no_ref: bool) -> Self {
+        Self {
+            expr: Cow::Borrowed(expr),
+            no_ref,
+        }
+    }
+
+    fn borrow(&'a self) -> Self {
+        Self {
+            expr: Cow::Borrowed(&self.expr),
+            no_ref: self.no_ref,
+        }
     }
 }
 
-impl Resolver for HashMap<String, Expr> {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
+/// A trait that `resolve` the given ident to expression code to assign the value.
+pub(crate) trait Resolver {
+    fn resolve(&self, ident: &Ident) -> Option<Resolved>;
+}
+
+impl<'a> Resolver for HashMap<String, Resolved<'a>> {
+    fn resolve(&self, ident: &Ident) -> Option<Resolved> {
         let ident = ident.to_string();
-        self.get(&ident).map(Cow::Borrowed)
+        self.get(&ident).map(Resolved::borrow)
     }
 }
 
 impl<R1: Resolver, R2: Resolver> Resolver for (R1, R2) {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
+    fn resolve(&self, ident: &Ident) -> Option<Resolved> {
         self.0.resolve(ident).or_else(|| self.1.resolve(ident))
     }
 }
 
 impl<R: Resolver + ?Sized> Resolver for &R {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
+    fn resolve(&self, ident: &Ident) -> Option<Resolved> {
         (*self).resolve(ident)
     }
 }
 
 impl<R: Resolver + ?Sized> Resolver for Box<R> {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
+    fn resolve(&self, ident: &Ident) -> Option<Resolved> {
         (**self).resolve(ident)
     }
 }
 
 impl Resolver for (String, Expr) {
-    fn resolve(&self, ident: &Ident) -> Option<Cow<Expr>> {
+    fn resolve(&self, ident: &Ident) -> Option<Resolved> {
         if *ident == self.0 {
-            Some(Cow::Borrowed(&self.1))
+            Some(Resolved::borrowed(&self.1, true))
         } else {
             None
         }
@@ -159,9 +189,12 @@ mod should {
         let expected = expr("bar()");
         let mut resolver = HashMap::new();
 
-        resolver.insert("foo".to_string(), &expected);
+        resolver.insert("foo".to_string(), Resolved::borrowed(&expected, true));
 
-        assert_eq!(expected, (&resolver).resolve(&arg).unwrap().into_owned())
+        assert_eq!(
+            expected,
+            (&resolver).resolve(&arg).unwrap().expr.into_owned()
+        )
     }
 
     #[test]

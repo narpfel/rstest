@@ -131,15 +131,29 @@ impl VisitMut for FixturesFunctionExtractor {
             let (extracted, remain): (Vec<_>, Vec<_>) = std::mem::take(&mut arg.attrs)
                 .into_iter()
                 .partition(|attr| attr_in(attr, &["with", "from"]));
+            let (no_refs, remain): (Vec<_>, Vec<_>) =
+                remain.into_iter().partition(|attr| attr_is(attr, "no_ref"));
             arg.attrs = remain;
 
             let (pos, errors) = parse_attribute_args_just_once(extracted.iter(), "with");
             self.1.extend(errors);
             let (resolve, errors) = parse_attribute_args_just_once(extracted.iter(), "from");
             self.1.extend(errors);
-            if pos.is_some() || resolve.is_some() {
+
+            let no_ref = match no_refs.len() {
+                1 => true,
+                0 => false,
+                _ => {
+                    self.1.extend(no_refs.iter().skip(1).map(|attr| {
+                        syn::Error::new_spanned(attr, "You cannot use `#[no_ref]` more than once.")
+                    }));
+                    true
+                }
+            };
+
+            if pos.is_some() || resolve.is_some() || no_ref {
                 self.0
-                    .push(Fixture::new(name, resolve, pos.unwrap_or_default()))
+                    .push(Fixture::new(name, resolve, pos.unwrap_or_default(), no_ref))
             }
         }
     }

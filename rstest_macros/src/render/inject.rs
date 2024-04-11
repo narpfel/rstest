@@ -6,7 +6,7 @@ use syn::{parse_quote, Expr, FnArg, Ident, PatType, Stmt, Type, TypeReference};
 
 use crate::{
     refident::{MaybeIdent, MaybeType},
-    resolver::Resolver,
+    resolver::{Resolved, Resolver},
     utils::{fn_arg_mutability, IsLiteralExpression},
 };
 
@@ -50,9 +50,7 @@ where
                 Type::Reference(TypeReference {
                     mutability, elem, ..
                 }) => match elem.as_ref() {
-                    Type::ImplTrait(_) | Type::TraitObject(_) | Type::Slice(_) => {
-                        None
-                    }
+                    Type::ImplTrait(_) | Type::TraitObject(_) | Type::Slice(_) => None,
                     _ => Some(quote! { &#mutability }),
                 },
                 _ => None,
@@ -65,11 +63,16 @@ where
         let arg_type = arg.maybe_type()?;
         let fixture_name = self.fixture_name(ident);
 
-        let mut fixture = self
+        let Resolved {
+            expr: mut fixture,
+            no_ref,
+        } = self
             .resolver
             .resolve(ident)
             .or_else(|| self.resolver.resolve(&fixture_name))
             .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
+
+        let maybe_reference = if no_ref { None } else { maybe_reference };
 
         if fixture.is_literal() && self.type_can_be_get_from_literal_str(arg_type) {
             fixture = Cow::Owned((self.magic_conversion)(fixture, arg_type));
@@ -110,8 +113,8 @@ where
     }
 }
 
-fn default_fixture_resolve(ident: &Ident) -> Cow<Expr> {
-    Cow::Owned(parse_quote! { #ident::default() })
+fn default_fixture_resolve(ident: &Ident) -> Resolved {
+    Resolved::owned(parse_quote! { #ident::default() }, false)
 }
 
 fn handling_magic_conversion_code(fixture: Cow<Expr>, arg_type: &Type) -> Expr {
@@ -162,7 +165,7 @@ mod should {
     ) {
         let arg = arg_str.ast();
         let mut resolver = std::collections::HashMap::new();
-        resolver.insert(rule.0.to_owned(), &rule.1);
+        resolver.insert(rule.0.to_owned(), Resolved::borrowed(&rule.1, false));
 
         let injected = ArgumentResolver::new(&resolver, &[]).resolve(&arg).unwrap();
 
@@ -204,7 +207,10 @@ mod should {
 
         let mut resolver = std::collections::HashMap::new();
         let expr = expr(r#""value to convert""#);
-        resolver.insert(arg.maybe_ident().unwrap().to_string(), &expr);
+        resolver.insert(
+            arg.maybe_ident().unwrap().to_string(),
+            Resolved::borrowed(&expr, false),
+        );
 
         let ag = ArgumentResolver {
             resolver: &resolver,

@@ -3,13 +3,13 @@
 /// Unit testing utility module. Collect a bunch of functions&macro and impls to simplify unit
 /// testing bolilerplate.
 ///
-use std::borrow::Cow;
-
 pub(crate) use pretty_assertions::assert_eq;
 use proc_macro2::TokenTree;
 use quote::quote;
 pub(crate) use rstest::{fixture, rstest};
 use syn::{parse::Parse, parse2, parse_quote, parse_str, Error, Expr, Ident, Stmt};
+
+use self::resolver::Resolved;
 
 use super::*;
 use crate::parse::{
@@ -131,7 +131,7 @@ pub(crate) fn attrs(s: impl AsRef<str>) -> Vec<syn::Attribute> {
 }
 
 pub(crate) fn fixture(name: impl AsRef<str>, args: &[&str]) -> Fixture {
-    Fixture::new(ident(name), None, Positional(to_exprs!(args)))
+    Fixture::new(ident(name), None, Positional(to_exprs!(args)), false)
 }
 
 pub(crate) fn arg_value(name: impl AsRef<str>, value: impl AsRef<str>) -> ArgumentValue {
@@ -276,7 +276,7 @@ impl From<Vec<FixtureItem>> for FixtureData {
 pub(crate) struct EmptyResolver;
 
 impl<'a> Resolver for EmptyResolver {
-    fn resolve(&self, _ident: &Ident) -> Option<Cow<Expr>> {
+    fn resolve(&self, _ident: &Ident) -> Option<Resolved> {
         None
     }
 }

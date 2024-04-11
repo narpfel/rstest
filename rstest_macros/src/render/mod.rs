@@ -11,6 +11,7 @@ use syn::{parse_quote, Attribute, Expr, FnArg, Ident, ItemFn, Path, ReturnType, 
 
 use quote::{format_ident, quote};
 
+use crate::resolver::Resolved;
 use crate::utils::{attr_ends_with, sanitize_ident};
 use crate::{
     parse::{
@@ -401,14 +402,14 @@ fn format_case_name(case: &TestCase, index: usize, display_len: usize) -> String
 fn cases_data(
     data: &RsTestData,
     name_span: Span,
-) -> impl Iterator<Item = (Ident, &[syn::Attribute], HashMap<String, &syn::Expr>)> {
+) -> impl Iterator<Item = (Ident, &[syn::Attribute], HashMap<String, Resolved>)> {
     let display_len = data.cases().count().display_len();
     data.cases().enumerate().map({
         move |(n, case)| {
             let resolver_case = data
                 .case_args()
                 .map(|a| a.to_string())
-                .zip(case.args.iter())
+                .zip(case.args.iter().map(|arg| Resolved::borrowed(arg, true)))
                 .collect::<HashMap<_, _>>();
             (
                 Ident::new(&format_case_name(case, n + 1, display_len), name_span),
