@@ -4,7 +4,7 @@ use quote::format_ident;
 use std::collections::{HashMap, HashSet};
 use unicode_ident::is_xid_continue;
 
-use crate::refident::MaybeIdent;
+use crate::{error::ErrorsVec, refident::MaybeIdent};
 use syn::{Attribute, Expr, FnArg, Generics, Ident, ItemFn, ReturnType, Type, WherePredicate};
 
 /// Return an iterator over fn arguments items.
@@ -41,6 +41,30 @@ pub(crate) fn attr_in(attr: &Attribute, names: &[&str]) -> bool {
     names
         .iter()
         .any(|name| attr.path().is_ident(&format_ident!("{}", name)))
+}
+
+pub(crate) fn at_most_one_attr_is(
+    attrs: Vec<syn::Attribute>,
+    name: &str,
+) -> (
+    Result<Option<syn::Attribute>, ErrorsVec>,
+    Vec<syn::Attribute>,
+) {
+    let (mut matches, remain): (Vec<_>, Vec<_>) =
+        attrs.into_iter().partition(|attr| attr_is(attr, name));
+    let result = match matches.len() {
+        0 => Ok(None),
+        1 => Ok(Some(matches.swap_remove(0))),
+        _ => Err(matches
+            .into_iter()
+            .skip(1)
+            .map(|attr| {
+                syn::Error::new_spanned(attr, format!("You cannot use `#[{name}]` more than once."))
+            })
+            .collect::<Vec<_>>()
+            .into()),
+    };
+    (result, remain)
 }
 
 pub(crate) trait IsLiteralExpression {

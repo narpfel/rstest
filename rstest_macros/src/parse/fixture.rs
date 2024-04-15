@@ -13,7 +13,8 @@ use super::{
     future::{extract_futures, extract_global_awt},
     parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
-use crate::{error::ErrorsVec, parse::extract_once, refident::RefIdent, utils::attr_is};
+use crate::{error::ErrorsVec, parse::extract_once, refident::RefIdent};
+use crate::utils::{at_most_one_attr_is, attr_is};
 use crate::{parse::Attribute, utils::attr_in};
 use proc_macro2::TokenStream;
 use quote::{format_ident, ToTokens};
@@ -131,22 +132,18 @@ impl VisitMut for FixturesFunctionExtractor {
             let (extracted, remain): (Vec<_>, Vec<_>) = std::mem::take(&mut arg.attrs)
                 .into_iter()
                 .partition(|attr| attr_in(attr, &["with", "from"]));
-            let (no_refs, remain): (Vec<_>, Vec<_>) =
-                remain.into_iter().partition(|attr| attr_is(attr, "no_ref"));
-            arg.attrs = remain;
+            let maybe_no_ref;
+            (maybe_no_ref, arg.attrs) = at_most_one_attr_is(remain, "no_ref");
 
             let (pos, errors) = parse_attribute_args_just_once(extracted.iter(), "with");
             self.1.extend(errors);
             let (resolve, errors) = parse_attribute_args_just_once(extracted.iter(), "from");
             self.1.extend(errors);
 
-            let no_ref = match no_refs.len() {
-                1 => true,
-                0 => false,
-                _ => {
-                    self.1.extend(no_refs.iter().skip(1).map(|attr| {
-                        syn::Error::new_spanned(attr, "You cannot use `#[no_ref]` more than once.")
-                    }));
+            let no_ref = match maybe_no_ref {
+                Ok(no_ref) => no_ref.is_some(),
+                Err(errors) => {
+                    self.1.extend(errors);
                     true
                 }
             };
@@ -684,7 +681,7 @@ mod extend {
 
                 assert_in!(
                     format!("{:?}", error).to_lowercase(),
-                    "cannot use #[once] more than once"
+                    "cannot use `#[once]` more than once."
                 );
             }
 

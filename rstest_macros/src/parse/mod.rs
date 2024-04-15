@@ -11,7 +11,7 @@ use syn::{
 use crate::{
     error::ErrorsVec,
     refident::{MaybeIdent, RefIdent},
-    utils::{attr_is, attr_starts_with},
+    utils::{at_most_one_attr_is, attr_is, attr_starts_with},
 };
 use fixture::{
     ArgumentValue, DefaultsFunctionExtractor, FixtureModifiers, FixturesFunctionExtractor,
@@ -381,20 +381,9 @@ impl Default for IsOnceAttributeFunctionExtractor {
 impl VisitMut for IsOnceAttributeFunctionExtractor {
     fn visit_item_fn_mut(&mut self, node: &mut ItemFn) {
         let attrs = std::mem::take(&mut node.attrs);
-        let (onces, remain): (Vec<_>, Vec<_>) =
-            attrs.into_iter().partition(|attr| attr_is(attr, "once"));
-
-        node.attrs = remain;
-        self.0 = match onces.len() {
-            1 => Ok(onces[0].path().get_ident().cloned()),
-            0 => Ok(None),
-            _ => Err(onces
-                .into_iter()
-                .skip(1)
-                .map(|attr| syn::Error::new_spanned(attr, "You cannot use #[once] more than once"))
-                .collect::<Vec<_>>()
-                .into()),
-        };
+        let maybe_once;
+        (maybe_once, node.attrs) = at_most_one_attr_is(attrs, "once");
+        self.0 = maybe_once.map(|once| once.and_then(|once| once.path().get_ident().cloned()));
     }
 }
 

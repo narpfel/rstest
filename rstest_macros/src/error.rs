@@ -81,6 +81,15 @@ fn generics_once<'a>(test: &'a ItemFn, info: &FixtureInfo) -> Errors<'a> {
 #[derive(Debug, Default)]
 pub(crate) struct ErrorsVec(Vec<syn::Error>);
 
+impl IntoIterator for ErrorsVec {
+    type Item = syn::Error;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 pub(crate) fn _merge_errors<R1, R2>(
     r1: Result<R1, ErrorsVec>,
     r2: Result<R2, ErrorsVec>,
