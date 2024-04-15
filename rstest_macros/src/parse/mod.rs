@@ -168,9 +168,9 @@ impl Parse for Fixture {
 
             if input.peek(Token![as]) {
                 let _: Token![as] = input.parse()?;
-                Ok(Self::new(input.parse()?, Some(resolve), positional, false))
+                Ok(Self::new(input.parse()?, Some(resolve), positional, true))
             } else {
-                Ok(Self::new(resolve, None, positional, false))
+                Ok(Self::new(resolve, None, positional, true))
             }
         } else {
             Err(syn::Error::new(

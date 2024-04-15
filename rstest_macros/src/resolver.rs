@@ -46,7 +46,7 @@ pub(crate) mod fixtures {
         #[case(&["my_expression"], "partial_1(my_expression)")]
         #[case(&["first", "other"], "partial_2(first, other)")]
         fn resolve_by_use_the_given_name(#[case] args: &[&str], #[case] expected: &str) {
-            let data = vec![fixture("pippo", args)];
+            let data = vec![fixture("pippo", args, true)];
             let resolver = get(data.iter());
 
             let resolved = resolver.resolve(&ident("pippo")).unwrap().expr.into_owned();
@@ -59,7 +59,7 @@ pub(crate) mod fixtures {
         #[case(&["my_expression"], "partial_1(my_expression)")]
         #[case(&["first", "other"], "partial_2(first, other)")]
         fn resolve_by_use_the_resolve_field(#[case] args: &[&str], #[case] expected: &str) {
-            let data = vec![fixture("pippo", args).with_resolve("pluto")];
+            let data = vec![fixture("pippo", args, true).with_resolve("pluto")];
             let resolver = get(data.iter());
 
             let resolved = resolver.resolve(&ident("pippo")).unwrap().expr.into_owned();

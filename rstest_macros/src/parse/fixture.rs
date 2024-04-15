@@ -338,8 +338,8 @@ mod should {
 
             let expected = FixtureInfo {
                 data: vec![
-                    fixture("my_fixture", &["42", r#""other""#]).into(),
-                    fixture("other", &["vec![42]"]).into(),
+                    fixture("my_fixture", &["42", r#""other""#], true).into(),
+                    fixture("other", &["vec![42]"], true).into(),
                     arg_value("value", "42").into(),
                     arg_value("other_value", "vec![1.0]").into(),
                 ]
@@ -389,7 +389,7 @@ mod should {
             let data = parse_fixture(r#"my_fixture(42, "other")"#);
 
             let expected = FixtureInfo {
-                data: vec![fixture("my_fixture", &["42", r#""other""#]).into()].into(),
+                data: vec![fixture("my_fixture", &["42", r#""other""#], true).into()].into(),
                 ..Default::default()
             };
 
@@ -434,8 +434,8 @@ mod extend {
 
             let expected = FixtureInfo {
                 data: vec![
-                    fixture("f1", &["2"]).into(),
-                    fixture("f2", &["vec![1,2]", r#""s""#]).into(),
+                    fixture("f1", &["2"], false).into(),
+                    fixture("f2", &["vec![1,2]", r#""s""#], false).into(),
                 ]
                 .into(),
                 ..Default::default()
@@ -460,10 +460,10 @@ mod extend {
 
             let expected = FixtureInfo {
                 data: vec![
-                    fixture("short", &["42", r#""other""#])
+                    fixture("short", &["42", r#""other""#], false)
                         .with_resolve("long_fixture_name")
                         .into(),
-                    fixture("s", &[]).with_resolve("simple").into(),
+                    fixture("s", &[], false).with_resolve("simple").into(),
                 ]
                 .into(),
                 ..Default::default()
