@@ -13,8 +13,8 @@ use super::{
     future::{extract_futures, extract_global_awt},
     parse_vector_trailing_till_double_comma, Attributes, ExtendWithFunctionAttrs, Fixture,
 };
-use crate::{error::ErrorsVec, parse::extract_once, refident::RefIdent};
 use crate::utils::{at_most_one_attr_is, attr_is};
+use crate::{error::ErrorsVec, parse::extract_once, refident::RefIdent};
 use crate::{parse::Attribute, utils::attr_in};
 use proc_macro2::TokenStream;
 use quote::{format_ident, ToTokens};
@@ -132,25 +132,25 @@ impl VisitMut for FixturesFunctionExtractor {
             let (extracted, remain): (Vec<_>, Vec<_>) = std::mem::take(&mut arg.attrs)
                 .into_iter()
                 .partition(|attr| attr_in(attr, &["with", "from"]));
-            let maybe_no_ref;
-            (maybe_no_ref, arg.attrs) = at_most_one_attr_is(remain, "no_ref");
+            let maybe_by_ref;
+            (maybe_by_ref, arg.attrs) = at_most_one_attr_is(remain, "by_ref");
 
             let (pos, errors) = parse_attribute_args_just_once(extracted.iter(), "with");
             self.1.extend(errors);
             let (resolve, errors) = parse_attribute_args_just_once(extracted.iter(), "from");
             self.1.extend(errors);
 
-            let no_ref = match maybe_no_ref {
-                Ok(no_ref) => no_ref.is_some(),
+            let by_ref = match maybe_by_ref {
+                Ok(is_ref) => is_ref.is_some(),
                 Err(errors) => {
                     self.1.extend(errors);
                     true
                 }
             };
 
-            if pos.is_some() || resolve.is_some() || no_ref {
+            if pos.is_some() || resolve.is_some() || by_ref {
                 self.0
-                    .push(Fixture::new(name, resolve, pos.unwrap_or_default(), no_ref))
+                    .push(Fixture::new(name, resolve, pos.unwrap_or_default(), by_ref))
             }
         }
     }
@@ -338,8 +338,8 @@ mod should {
 
             let expected = FixtureInfo {
                 data: vec![
-                    fixture("my_fixture", &["42", r#""other""#], true).into(),
-                    fixture("other", &["vec![42]"], true).into(),
+                    fixture("my_fixture", &["42", r#""other""#]).into(),
+                    fixture("other", &["vec![42]"]).into(),
                     arg_value("value", "42").into(),
                     arg_value("other_value", "vec![1.0]").into(),
                 ]
@@ -389,7 +389,7 @@ mod should {
             let data = parse_fixture(r#"my_fixture(42, "other")"#);
 
             let expected = FixtureInfo {
-                data: vec![fixture("my_fixture", &["42", r#""other""#], true).into()].into(),
+                data: vec![fixture("my_fixture", &["42", r#""other""#]).into()].into(),
                 ..Default::default()
             };
 
@@ -434,8 +434,8 @@ mod extend {
 
             let expected = FixtureInfo {
                 data: vec![
-                    fixture("f1", &["2"], false).into(),
-                    fixture("f2", &["vec![1,2]", r#""s""#], false).into(),
+                    fixture("f1", &["2"]).into(),
+                    fixture("f2", &["vec![1,2]", r#""s""#]).into(),
                 ]
                 .into(),
                 ..Default::default()
@@ -460,10 +460,10 @@ mod extend {
 
             let expected = FixtureInfo {
                 data: vec![
-                    fixture("short", &["42", r#""other""#], false)
+                    fixture("short", &["42", r#""other""#])
                         .with_resolve("long_fixture_name")
                         .into(),
-                    fixture("s", &[], false).with_resolve("simple").into(),
+                    fixture("s", &[]).with_resolve("simple").into(),
                 ]
                 .into(),
                 ..Default::default()

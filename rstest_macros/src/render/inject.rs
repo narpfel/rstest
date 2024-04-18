@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse_quote, Expr, FnArg, Ident, PatType, Stmt, Type, TypeReference};
+use syn::{parse_quote, Expr, FnArg, Ident, Stmt, Type};
 
 use crate::{
     refident::{MaybeIdent, MaybeType},
@@ -44,18 +44,6 @@ where
 
     fn resolve(&self, arg: &FnArg) -> Option<Stmt> {
         let ident = arg.maybe_ident()?;
-        let maybe_reference = match arg {
-            FnArg::Receiver(_) => None?,
-            FnArg::Typed(PatType { ty, .. }) => match ty.as_ref() {
-                Type::Reference(TypeReference {
-                    mutability, elem, ..
-                }) => match elem.as_ref() {
-                    Type::ImplTrait(_) | Type::TraitObject(_) | Type::Slice(_) => None,
-                    _ => Some(quote! { &#mutability }),
-                },
-                _ => None,
-            },
-        };
         let mutability = fn_arg_mutability(arg);
         let unused_mut: Option<syn::Attribute> = mutability
             .as_ref()
@@ -65,14 +53,14 @@ where
 
         let Resolved {
             expr: mut fixture,
-            no_ref,
+            by_ref,
         } = self
             .resolver
             .resolve(ident)
             .or_else(|| self.resolver.resolve(&fixture_name))
             .unwrap_or_else(|| default_fixture_resolve(&fixture_name));
 
-        let maybe_reference = if no_ref { None } else { maybe_reference };
+        let maybe_reference = if by_ref { Some(quote! { & }) } else { None };
 
         if fixture.is_literal() && self.type_can_be_get_from_literal_str(arg_type) {
             fixture = Cow::Owned((self.magic_conversion)(fixture, arg_type));

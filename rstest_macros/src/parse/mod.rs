@@ -135,7 +135,7 @@ pub(crate) struct Fixture {
     pub(crate) name: Ident,
     pub(crate) resolve: Option<Ident>,
     pub(crate) positional: Positional,
-    pub(crate) has_no_ref_attribute: bool,
+    pub(crate) has_by_ref_attribute: bool,
 }
 
 impl Fixture {
@@ -143,13 +143,13 @@ impl Fixture {
         name: Ident,
         resolve: Option<Ident>,
         positional: Positional,
-        has_no_ref_attribute: bool,
+        has_by_ref_attribute: bool,
     ) -> Self {
         Self {
             name,
             resolve,
             positional,
-            has_no_ref_attribute,
+            has_by_ref_attribute,
         }
     }
 }
@@ -168,9 +168,9 @@ impl Parse for Fixture {
 
             if input.peek(Token![as]) {
                 let _: Token![as] = input.parse()?;
-                Ok(Self::new(input.parse()?, Some(resolve), positional, true))
+                Ok(Self::new(input.parse()?, Some(resolve), positional, false))
             } else {
-                Ok(Self::new(resolve, None, positional, true))
+                Ok(Self::new(resolve, None, positional, false))
             }
         } else {
             Err(syn::Error::new(

@@ -409,7 +409,7 @@ fn cases_data(
             let resolver_case = data
                 .case_args()
                 .map(|a| a.to_string())
-                .zip(case.args.iter().map(|arg| Resolved::borrowed(arg, true)))
+                .zip(case.args.iter().map(|arg| Resolved::borrowed(arg, false)))
                 .collect::<HashMap<_, _>>();
             (
                 Ident::new(&format_case_name(case, n + 1, display_len), name_span),

@@ -130,8 +130,8 @@ pub(crate) fn attrs(s: impl AsRef<str>) -> Vec<syn::Attribute> {
     .attrs
 }
 
-pub(crate) fn fixture(name: impl AsRef<str>, args: &[&str], no_ref: bool) -> Fixture {
-    Fixture::new(ident(name), None, Positional(to_exprs!(args)), no_ref)
+pub(crate) fn fixture(name: impl AsRef<str>, args: &[&str]) -> Fixture {
+    Fixture::new(ident(name), None, Positional(to_exprs!(args)), false)
 }
 
 pub(crate) fn arg_value(name: impl AsRef<str>, value: impl AsRef<str>) -> ArgumentValue {

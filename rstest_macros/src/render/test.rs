@@ -1712,7 +1712,7 @@ mod complete_should {
         .ast();
         let data = RsTestData {
             items: vec![
-                fixture("fix", &["2"], false).into(),
+                fixture("fix", &["2"]).into(),
                 ident("a").into(),
                 ident("b").into(),
                 vec!["1f64", "2f32"]

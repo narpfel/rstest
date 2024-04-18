@@ -20,7 +20,7 @@ pub(crate) mod fixtures {
             .map(|f| {
                 (
                     f.name.to_string(),
-                    Resolved::owned(extract_resolve_expression(f), f.has_no_ref_attribute),
+                    Resolved::owned(extract_resolve_expression(f), f.has_by_ref_attribute),
                 )
             })
             .collect::<HashMap<_, _>>()
@@ -46,7 +46,7 @@ pub(crate) mod fixtures {
         #[case(&["my_expression"], "partial_1(my_expression)")]
         #[case(&["first", "other"], "partial_2(first, other)")]
         fn resolve_by_use_the_given_name(#[case] args: &[&str], #[case] expected: &str) {
-            let data = vec![fixture("pippo", args, true)];
+            let data = vec![fixture("pippo", args)];
             let resolver = get(data.iter());
 
             let resolved = resolver.resolve(&ident("pippo")).unwrap().expr.into_owned();
@@ -59,7 +59,7 @@ pub(crate) mod fixtures {
         #[case(&["my_expression"], "partial_1(my_expression)")]
         #[case(&["first", "other"], "partial_2(first, other)")]
         fn resolve_by_use_the_resolve_field(#[case] args: &[&str], #[case] expected: &str) {
-            let data = vec![fixture("pippo", args, true).with_resolve("pluto")];
+            let data = vec![fixture("pippo", args).with_resolve("pluto")];
             let resolver = get(data.iter());
 
             let resolved = resolver.resolve(&ident("pippo")).unwrap().expr.into_owned();
@@ -75,7 +75,7 @@ pub(crate) mod values {
 
     pub(crate) fn get<'a>(values: impl Iterator<Item = &'a ArgumentValue>) -> impl Resolver + 'a {
         values
-            .map(|av| (av.name.to_string(), Resolved::borrowed(&av.expr, true)))
+            .map(|av| (av.name.to_string(), Resolved::borrowed(&av.expr, false)))
             .collect::<HashMap<_, _>>()
     }
 
@@ -110,28 +110,28 @@ pub(crate) mod values {
 
 pub(crate) struct Resolved<'a> {
     pub(crate) expr: Cow<'a, Expr>,
-    pub(crate) no_ref: bool,
+    pub(crate) by_ref: bool,
 }
 
 impl<'a> Resolved<'a> {
-    pub(crate) fn owned(expr: Expr, no_ref: bool) -> Self {
+    pub(crate) fn owned(expr: Expr, by_ref: bool) -> Self {
         Self {
             expr: Cow::Owned(expr),
-            no_ref,
+            by_ref,
         }
     }
 
-    pub(crate) fn borrowed(expr: &'a Expr, no_ref: bool) -> Self {
+    pub(crate) fn borrowed(expr: &'a Expr, by_ref: bool) -> Self {
         Self {
             expr: Cow::Borrowed(expr),
-            no_ref,
+            by_ref,
         }
     }
 
     fn borrow(&'a self) -> Self {
         Self {
             expr: Cow::Borrowed(&self.expr),
-            no_ref: self.no_ref,
+            by_ref: self.by_ref,
         }
     }
 }
@@ -169,7 +169,7 @@ impl<R: Resolver + ?Sized> Resolver for Box<R> {
 impl Resolver for (String, Expr) {
     fn resolve(&self, ident: &Ident) -> Option<Resolved> {
         if *ident == self.0 {
-            Some(Resolved::borrowed(&self.1, true))
+            Some(Resolved::borrowed(&self.1, false))
         } else {
             None
         }
@@ -189,7 +189,7 @@ mod should {
         let expected = expr("bar()");
         let mut resolver = HashMap::new();
 
-        resolver.insert("foo".to_string(), Resolved::borrowed(&expected, true));
+        resolver.insert("foo".to_string(), Resolved::borrowed(&expected, false));
 
         assert_eq!(
             expected,
